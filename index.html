@@ -56,6 +56,31 @@
         .delay-300 {
             animation-delay: 0.3s;
         }
+
+        /* Form status message */
+        .form-status {
+            display: none;
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1.5rem;
+            font-weight: 500;
+        }
+        .form-status.success {
+            display: block;
+            background-color: #d1fae5;
+            color: #065f46;
+            border: 1px solid #34d399;
+        }
+        .form-status.error {
+            display: block;
+            background-color: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #f87171;
+        }
+        .btn-loading {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 <body class="font-sans antialiased text-gray-800">
@@ -447,28 +472,41 @@
                 </div>
                 
                 <div class="md:w-1/2">
-                    <form class="bg-gray-50 p-8 rounded-xl shadow-md">
+                    <div id="form-status" class="form-status"></div>
+                    <form
+                        id="contact-form"
+                        name="contact"
+                        method="POST"
+                        data-netlify="true"
+                        netlify-honeypot="bot-field"
+                        class="bg-gray-50 p-8 rounded-xl shadow-md"
+                    >
+                        <input type="hidden" name="form-name" value="contact">
+                        <p class="hidden">
+                            <label>Don't fill this out if you're human: <input name="bot-field"></label>
+                        </p>
+
                         <div class="mb-6">
                             <label for="name" class="block text-gray-700 font-medium mb-2">Your Name</label>
-                            <input type="text" id="name" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" placeholder="John Doe">
+                            <input type="text" id="name" name="name" required class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" placeholder="John Doe">
                         </div>
                         
                         <div class="mb-6">
                             <label for="email" class="block text-gray-700 font-medium mb-2">Your Email</label>
-                            <input type="email" id="email" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" placeholder="john@example.com">
+                            <input type="email" id="email" name="email" required class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" placeholder="john@example.com">
                         </div>
                         
                         <div class="mb-6">
                             <label for="subject" class="block text-gray-700 font-medium mb-2">Subject</label>
-                            <input type="text" id="subject" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" placeholder="Project Inquiry">
+                            <input type="text" id="subject" name="subject" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" placeholder="Project Inquiry">
                         </div>
                         
                         <div class="mb-6">
                             <label for="message" class="block text-gray-700 font-medium mb-2">Your Message</label>
-                            <textarea id="message" rows="5" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" placeholder="Tell me about your project..."></textarea>
+                            <textarea id="message" name="message" rows="5" required class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" placeholder="Tell me about your project..."></textarea>
                         </div>
                         
-                        <button type="submit" class="w-full bg-indigo-600 text-white py-3 px-6 rounded-lg hover:bg-indigo-700 transition duration-300 font-medium">Send Message</button>
+                        <button type="submit" id="submit-btn" class="w-full bg-indigo-600 text-white py-3 px-6 rounded-lg hover:bg-indigo-700 transition duration-300 font-medium">Send Message</button>
                     </form>
                 </div>
             </div>
@@ -583,6 +621,62 @@
         
         // Run on scroll
         window.addEventListener('scroll', animateOnScroll);
+
+        // ----- Contact form submission (Netlify Forms) -----
+        function encodeFormData(data) {
+            return Object.keys(data)
+                .map(key => encodeURIComponent(key) + "=" + encodeURIComponent(data[key]))
+                .join("&");
+        }
+
+        const contactForm = document.getElementById('contact-form');
+        const formStatus = document.getElementById('form-status');
+        const submitBtn = document.getElementById('submit-btn');
+
+        contactForm.addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            const formData = new FormData(contactForm);
+            const payload = {};
+            formData.forEach((value, key) => { payload[key] = value; });
+
+            submitBtn.disabled = true;
+            submitBtn.classList.add('btn-loading');
+            submitBtn.textContent = 'Sending...';
+            formStatus.className = 'form-status';
+            formStatus.textContent = '';
+
+            fetch('/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: encodeFormData(payload)
+            })
+                .then(() => {
+                    formStatus.className = 'form-status success';
+                    formStatus.textContent = "Thanks! Your message has been sent — I'll get back to you soon.";
+                    contactForm.reset();
+                })
+                .catch((error) => {
+                    formStatus.className = 'form-status error';
+                    formStatus.textContent = 'Something went wrong. Please email me directly at omollo266@gmail.com.';
+                    console.error(error);
+                })
+                .finally(() => {
+                    submitBtn.disabled = false;
+                    submitBtn.classList.remove('btn-loading');
+                    submitBtn.textContent = 'Send Message';
+                });
+        });
     </script>
+
+    <!-- Hidden static form so Netlify's build bot can detect the "contact" form.
+         This is required because the visible form above is populated/submitted via JS. -->
+    <form name="contact" data-netlify="true" netlify-honeypot="bot-field" hidden>
+        <input type="text" name="name">
+        <input type="email" name="email">
+        <input type="text" name="subject">
+        <textarea name="message"></textarea>
+        <input name="bot-field">
+    </form>
 </body>
 </html>
